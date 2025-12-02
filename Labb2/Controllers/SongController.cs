@@ -1,3 +1,4 @@
+using Labb2.DTOS;
 using Labb2.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -21,7 +22,9 @@ public class SongController : ControllerBase {
             .Include(s => s.Album)
             .FirstOrDefault();
         if (song == null) return NotFound($"Song with title '{title}' not found.");
-        return Ok(song);
+
+        var response = new SongDTO(song.Id, song.Title, song.Duration);
+        return Ok(response);
     }
 
     [HttpPost("create")]
@@ -37,17 +40,40 @@ public class SongController : ControllerBase {
         };
         _repoContext.Songs.Add(newSong);
         _repoContext.SaveChanges();
-        return Ok(newSong);
+
+        var response = new SongCreateDTO(newSong.Id);
+        return Ok(response);
     }
+
+    public class SongCreateDTO {
+        public int Id { get; set; }
+        public SongCreateDTO (int id) {
+            Id = id;
+        }
+    }
+
     [HttpPost("delete")]
     public IActionResult DeleteSong (int id) {
         var song = _repoContext.Songs
             .Where(s => s.Id == id)
             .FirstOrDefault();
-        if (song == null) return NotFound($"Song with ID '{id}' not found.");
+
+        var response = new SongDeletedDTO();
+
+        if (song == null) {
+            response.IsDeleted = true;
+            return Ok(response);
+        }
+
         _repoContext.Songs.Remove(song);
         _repoContext.SaveChanges();
-        return Ok($"Song with ID '{id}' deleted successfully.");
+
+        response.IsDeleted = true;
+        return Ok(response);
+    }
+
+    public class SongDeletedDTO {
+        public bool IsDeleted { get; set; }
     }
 
     [HttpPost("update")]
@@ -66,8 +92,10 @@ public class SongController : ControllerBase {
             song.AlbumId = albumId.Value;
         }
         _repoContext.SaveChanges();
-        return Ok(song);
+
+        return Ok(new SongDTO(song.Id, song.Title, song.Duration));
     }
+
 
     [HttpPost("add/artist")]
     public IActionResult AddArtistToSong (int id, int artistId) {
@@ -80,12 +108,21 @@ public class SongController : ControllerBase {
             .Where(a => a.Id == artistId)
             .FirstOrDefault();
         if (artistToAdd == null) return NotFound($"Artist with ID '{artistId}' not found.");
+
+        var response = new AddArtistDTO();
+
         if (song.Artists.Contains(artistToAdd)) {
-            return Conflict($"Artist with ID '{artistId}' is already associated with song ID '{id}'.");
+            response.Message = $"Artist with ID '{artistId}' is already associated with song ID '{id}'.";
+            response.IsAdded = true;
+
+            return Ok(response);
         }
+
         song.Artists.Add(artistToAdd);
         _repoContext.SaveChanges();
-        return Ok($"Artist with ID '{artistId}' added to song ID '{id}'.");
+
+        response.IsAdded = true;
+        return Ok(response);
     }
 
 
@@ -100,11 +137,29 @@ public class SongController : ControllerBase {
             .Where(a => a.Id == artistId)
             .FirstOrDefault();
         if (artistToRemove == null) return NotFound($"Artist with ID '{artistId}' not found.");
+
+        var response = new RemoveArtistDTO();
+
         if (!song.Artists.Contains(artistToRemove)) {
-            return NotFound($"Artist with ID '{artistId}' is not associated with song ID '{id}'.");
+            response.IsRemoved = true;
+            response.Message = $"Artist with ID '{artistId}' is not associated with song ID '{id}'.";
+            return Ok(response);
         }
+
         song.Artists.Remove(artistToRemove);
         _repoContext.SaveChanges();
-        return Ok($"Artist with ID '{artistId}' removed from song ID '{id}'.");
+
+        response.IsRemoved = true;
+        return Ok(response);
+    }
+
+    public class AddArtistDTO {
+        public bool IsAdded { get; set; } = false;
+        public string Message { get; set; } = string.Empty;
+    }
+
+    public class RemoveArtistDTO {
+        public bool IsRemoved { get; set; } = false;
+        public string Message { get; set; } = string.Empty;
     }
 }

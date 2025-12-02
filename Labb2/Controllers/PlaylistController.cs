@@ -26,13 +26,23 @@ public class PlaylistController : ControllerBase {
             Name = playlistName,
             UserId = user.Id
         };
+
+        var response = new CreateDTO();
         _repoContext.Playlists.Add(newPlaylist);
         _repoContext.SaveChanges();
+
+        response.IsCreated = true;
+        response.Id = newPlaylist.Id;
+
         return Ok(newPlaylist);
+    }
+    public class CreateDTO {
+        public bool IsCreated { get; set; }
+        public int Id { get; set; }
     }
 
     [HttpPost("delete")]
-    public IActionResult DeletePlaylist (string username, string playlistName) {
+    public IActionResult DeletePlaylist (string username, int playlistId) {
         var user = _repoContext.Users
             .Where(u => u.Username == username)
             .FirstOrDefault();
@@ -40,56 +50,104 @@ public class PlaylistController : ControllerBase {
         if (user == null) return NotFound($"User with name '{username}' not found.");
 
         var playlist = _repoContext.Playlists
-            .Where(p => p.Name == playlistName && p.UserId == user.Id)
+            .Where(p => p.Id == playlistId && p.UserId == user.Id)
             .FirstOrDefault();
-        if (playlist == null) return NotFound($"Playlist with name '{playlistName}' not found for user '{username}'.");
+
+        var response = new DeleteDTO();
+        if (playlist == null) {
+            response.IsDeleted = true;
+            response.Message = $"Playlist with ID '{playlistId}' not found for user '{username}'.";
+            return Ok(response);
+        }
 
         _repoContext.Playlists.Remove(playlist);
         _repoContext.SaveChanges();
-        return Ok($"Playlist '{playlistName}' deleted successfully.");
+
+        response.IsDeleted = true;
+        return Ok(response);
     }
 
+    public class DeleteDTO {
+        public bool IsDeleted { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
+
+
     [HttpPost("add")]
-    public IActionResult AddSongToPlaylist (string username, string playlistName, int songId) {
+    public IActionResult AddSongToPlaylist (string username, int playlistId, int songId) {
         var user = _repoContext.Users
             .Where(u => u.Username == username)
             .FirstOrDefault();
         if (user == null) return NotFound($"User with name '{username}' not found.");
 
-
         var playlist = _repoContext.Playlists
-            .Where(p => p.Name == playlistName && p.UserId == user.Id)
+            .Where(p => p.Id == playlistId && p.UserId == user.Id)
             .Include(p => p.Songs)
             .FirstOrDefault();
-        if (playlist == null) return NotFound($"Playlist with name '{playlistName}' not found for user '{username}'.");
+
+        if (playlist == null) return NotFound($"Playlist with ID '{playlistId}' not found for user '{username}'.");
 
         var song = _repoContext.Songs
             .Where(s => s.Id == songId)
             .FirstOrDefault();
         if (song == null) return NotFound($"Song with ID '{songId}' not found.");
 
+        var response = new AddedSongFromPlaylistDTO();
+
+        if (playlist.Songs.Any(x => x.Id == song.Id)) {
+            response.IsAdded = true;
+            response.Message = $"Song with ID '{songId}' already in playlist.";
+            return Ok(response);
+        }
+
         playlist.Songs.Add(song);
         _repoContext.SaveChanges();
 
-        return Ok($"Song with ID '{songId}' added to playlist '{playlistName}'.");
+        response.IsAdded = true;
+
+        return Ok(response);
     }
+
+
+
     [HttpPost("remove")]
-    public IActionResult RemoveSongFromPlaylist (string username, string playlistName, int songId) {
+    public IActionResult RemoveSongFromPlaylist (string username, int playlistId, int songId) {
         var user = _repoContext.Users
             .Where(u => u.Username == username)
             .FirstOrDefault();
         if (user == null) return NotFound($"User with name '{username}' not found.");
         var playlist = _repoContext.Playlists
-            .Where(p => p.Name == playlistName && p.UserId == user.Id)
+            .Where(p => p.Id == playlistId && p.UserId == user.Id)
             .Include(p => p.Songs)
             .FirstOrDefault();
-        if (playlist == null) return NotFound($"Playlist with name '{playlistName}' not found for user '{username}'.");
+        if (playlist == null) return NotFound($"Playlist with ID '{playlistId}' not found for user '{username}'.");
+
         var song = playlist.Songs
             .Where(s => s.Id == songId)
             .FirstOrDefault();
-        if (song == null) return NotFound($"Song with ID '{songId}' not found in playlist '{playlistName}'.");
+
+        var response = new RemovedSongFromPlaylistDTO();
+        if (song == null) {
+            response.IsRemoved = true;
+            response.Message = $"Song with ID '{songId}' not found in playlist '{playlistId}'.";
+            return Ok(response);
+        }
+
         playlist.Songs.Remove(song);
         _repoContext.SaveChanges();
-        return Ok($"Song with ID '{songId}' removed from playlist '{playlistName}'.");
+
+        response.IsRemoved = true;
+        return Ok(response);
+    }
+
+
+    public class RemovedSongFromPlaylistDTO {
+        public bool IsRemoved { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
+
+    public class AddedSongFromPlaylistDTO {
+        public bool IsAdded { get; set; }
+        public string Message { get; set; } = string.Empty;
     }
 }

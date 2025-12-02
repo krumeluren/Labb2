@@ -13,6 +13,13 @@ public class AlbumController : ControllerBase {
         _logger = logger;
         _repoContext = repoContext;
     }
+    [HttpGet("get/all")]
+    public IActionResult GetAlbums () {
+        var album = _repoContext.Albums
+            .Include(a => a.Artists)
+            .Include(x => x.Songs);
+        return Ok(album);
+    }
 
     [HttpGet("get")]
     public IActionResult GetAlbumByTitle (string title) {
@@ -26,11 +33,11 @@ public class AlbumController : ControllerBase {
     }
 
     [HttpPost("create")]
-    public IActionResult AddAlbum (string artistName, string albumTitle, int releaseYear) {
+    public IActionResult AddAlbum (int artistId, string albumTitle, int releaseYear) {
         var artist = _repoContext.Artists
-            .Where(a => a.Name == artistName)
+            .Where(a => a.Id == artistId)
             .FirstOrDefault();
-        if (artist == null) return NotFound($"Artist with name '{artistName}' not found.");
+        if (artist == null) return NotFound($"Artist with id '{artistId}' not found.");
         var newAlbum = new Album {
             Title = albumTitle,
             ReleaseYear = releaseYear,
@@ -38,7 +45,7 @@ public class AlbumController : ControllerBase {
         };
         _repoContext.Albums.Add(newAlbum);
         _repoContext.SaveChanges();
-        return Ok(newAlbum);
+        return Ok(newAlbum.Id);
     }
 
     [HttpPost("add/artist")]
@@ -117,3 +124,4 @@ public class AlbumController : ControllerBase {
         return Ok($"Song with ID '{songId}' removed from album ID '{id}'.");
     }
 }
+

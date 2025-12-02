@@ -1,3 +1,4 @@
+using Labb2.DTOS;
 using Labb2.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -27,9 +28,12 @@ public class UserController : ControllerBase {
         var newUser = new User {
             Username = username
         };
+
         _repoContext.Users.Add(newUser);
         _repoContext.SaveChanges();
-        return Ok(newUser);
+
+        var response = new UserDTO(newUser.Username, newUser.Id);
+        return Ok(response);
     }
 
     [HttpGet("get/playlists")]
@@ -43,7 +47,19 @@ public class UserController : ControllerBase {
         if (user == null) {
             return NotFound($"User with name '{username}' not found.");
         }
+        var response = new PlaylistsDTO();
+        var playlists = new List<PlaylistDTO>();
+        foreach (var item in user.Playlists) {
+            playlists.Add(new PlaylistDTO(item.Id, item.Name) {
+                Songs = item.Songs.Select(s => new SongDTO(s.Id, s.Title, s.Duration)).ToList()
+            });
+        }
+        response.Playlists = playlists;
+        return Ok(response);
+    }
 
-        return Ok(user.Playlists);
+    public class PlaylistsDTO {
+        public List<PlaylistDTO> Playlists { get; set; }
+
     }
 }
