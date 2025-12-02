@@ -1,3 +1,4 @@
+using Labb2.DTOS;
 using Labb2.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,10 +16,18 @@ public class AlbumController : ControllerBase {
     }
     [HttpGet("get/all")]
     public IActionResult GetAlbums () {
-        var album = _repoContext.Albums
+        var albums = _repoContext.Albums
             .Include(a => a.Artists)
             .Include(x => x.Songs);
-        return Ok(album);
+
+        var result = new GetAllDto();
+
+        foreach (var album in albums) {
+            var getDto = CreateGetDto(album);
+            result.Albums.Add(getDto);
+        }
+
+        return Ok(albums);
     }
 
     [HttpGet("get")]
@@ -29,8 +38,33 @@ public class AlbumController : ControllerBase {
             .Include(a => a.Songs)
             .FirstOrDefault();
         if (album == null) return NotFound($"Album with title '{title}' not found.");
-        return Ok(album);
+
+        var result = CreateGetDto(album);
+        return Ok(result);
     }
+
+    private GetDto CreateGetDto (Album album) {
+        var result = new GetDto();
+
+        result.Title = album.Title;
+        result.ReleaseYear = album.ReleaseYear;
+        result.Artists = album.Artists.Select(x => new ArtistDTO(x.Id, x.Name)).ToList();
+        result.Songs = album.Songs.Select(x => new SongDTO(x.Id, x.Title, x.Duration)).ToList();
+        return result;
+    }
+
+    public class GetAllDto {
+        public List<GetDto> Albums { get; set; } = new List<GetDto>();
+    }
+
+    public class GetDto {
+        public string Title { get; set; } = string.Empty;
+        public int ReleaseYear { get; set; }
+        public List<ArtistDTO> Artists { get; set; } = new List<ArtistDTO>();
+        public List<SongDTO> Songs { get; set; } = new List<SongDTO>();
+    }
+
+
 
     [HttpPost("create")]
     public IActionResult AddAlbum (int artistId, string albumTitle, int releaseYear) {
@@ -59,12 +93,29 @@ public class AlbumController : ControllerBase {
             .Where(a => a.Id == artistId)
             .FirstOrDefault();
         if (artistToAdd == null) return NotFound($"Artist with ID '{artistId}' not found.");
+
+
+        var result = new ArtistAddedDto();
         if (album.Artists.Contains(artistToAdd)) {
-            return Conflict($"Artist with ID '{artistId}' is already associated with album ID '{id}'.");
+            result.IsAdded = true;
+            result.Message = $"Artist with ID '{artistId}' is already associated with album ID '{id}'.";
+            return Ok(result);
         }
+
         album.Artists.Add(artistToAdd);
         _repoContext.SaveChanges();
-        return Ok($"Artist with ID '{artistId}' added to album ID '{id}'.");
+
+        result.IsAdded = true;
+        return Ok(result);
+    }
+
+    public class ArtistAddedDto {
+        public bool IsAdded { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
+    public class ArtistRemovedDto {
+        public bool IsRemoved { get; set; }
+        public string Message { get; set; } = string.Empty;
     }
 
 
@@ -79,12 +130,21 @@ public class AlbumController : ControllerBase {
             .Where(a => a.Id == artist)
             .FirstOrDefault();
         if (artistToRemove == null) return NotFound($"Artist with ID '{artist}' not found.");
+
+
+        var result = new ArtistRemovedDto();
+
         if (!album.Artists.Contains(artistToRemove)) {
-            return NotFound($"Artist with ID '{artist}' is not associated with album ID '{id}'.");
+            result.IsRemoved = true;
+            result.Message = $"Artist with ID '{artist}' is not associated with album ID '{id}'.";
+            return Ok(result);
         }
+
         album.Artists.Remove(artistToRemove);
         _repoContext.SaveChanges();
-        return Ok($"Artist with ID '{artist}' removed from album ID '{id}'.");
+
+        result.IsRemoved = true;
+        return Ok(result);
     }
 
     [HttpPost("add/song")]
@@ -98,13 +158,33 @@ public class AlbumController : ControllerBase {
             .Where(s => s.Id == songId)
             .FirstOrDefault();
         if (songToAdd == null) return NotFound($"Song with ID '{songId}' not found.");
+
+        var result = new AddSongDto();
+
         if (album.Songs.Contains(songToAdd)) {
-            return Conflict($"Song with ID '{songId}' is already associated with album ID '{id}'.");
+            result.IsAdded = true;
+            result.Message = $"Song with ID '{songId}' is already associated with album ID '{id}'.";
+            return Conflict(result);
         }
+
         album.Songs.Add(songToAdd);
         _repoContext.SaveChanges();
-        return Ok($"Song with ID '{songId}' added to album ID '{id}'.");
+
+        result.IsAdded = true;
+
+        return Ok(result);
     }
+
+    public class AddSongDto {
+        public bool IsAdded { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
+
+    public class RemoveSongDto {
+        public bool IsRemoved { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
+
     [HttpDelete("remove/song")]
     public IActionResult RemoveSongFromAlbum (int id, int songId) {
         var album = _repoContext.Albums
@@ -116,12 +196,19 @@ public class AlbumController : ControllerBase {
             .Where(s => s.Id == songId)
             .FirstOrDefault();
         if (songToRemove == null) return NotFound($"Song with ID '{songId}' not found.");
+
+        var result = new RemoveSongDto();
         if (!album.Songs.Contains(songToRemove)) {
-            return NotFound($"Song with ID '{songId}' is not associated with album ID '{id}'.");
+            result.IsRemoved = true;
+            result.Message = $"Song with ID '{songId}' is not associated with album ID '{id}'.";
+            return Ok(result);
         }
+
         album.Songs.Remove(songToRemove);
         _repoContext.SaveChanges();
-        return Ok($"Song with ID '{songId}' removed from album ID '{id}'.");
+
+        result.IsRemoved = true;
+        return Ok(result);
     }
 }
 

@@ -26,6 +26,11 @@ public class SongDTO {
 public class ArtistDTO {
     public int Id { get; }
     public string Name { get; }
+
+    public ArtistDTO (int id, string name) {
+        Id = id;
+        Name = name;
+    }
 }
 
 public class AlbumDTO {

@@ -1,3 +1,4 @@
+using Labb2.DTOS;
 using Labb2.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -19,8 +20,29 @@ public class ArtistController : ControllerBase {
             .Include(a => a.Albums)
             .Include(a => a.Songs)
             .ToList();
-        return Ok(artists);
+
+        var result = new GetAllDto();
+        foreach (var item in artists) {
+            result.GetArtistDtos.Add(new GetArtistDto() {
+                Artist = new ArtistDTO(item.Id, item.Name),
+                AlbumIds = item.Albums.Select(x => x.Id).ToList(),
+                SongIds = item.Songs.Select(x => x.Id).ToList()
+            });
+        }
+        return Ok(result);
     }
+
+    public class GetAllDto {
+        public List<GetArtistDto> GetArtistDtos { get; set; } = new List<GetArtistDto>();
+    }
+
+    public class GetArtistDto {
+        public ArtistDTO Artist { get; set; }
+        public List<int> AlbumIds { get; set; } = new();
+        public List<int> SongIds { get; set; } = new();
+    }
+
+
     [HttpGet("get")]
     public IActionResult GetArtistByName (string name) {
         var artist = _repoContext.Artists
@@ -30,7 +52,13 @@ public class ArtistController : ControllerBase {
             .FirstOrDefault();
         if (artist == null) return NotFound($"Artist with name '{name}' not found.");
 
-        return Ok(artist);
+        var result = new GetArtistDto() {
+            Artist = new ArtistDTO(artist.Id, artist.Name),
+            AlbumIds = artist.Albums.Select(x => x.Id).ToList(),
+            SongIds = artist.Songs.Select(x => x.Id).ToList()
+        };
+
+        return Ok(result);
     }
 
     [HttpPost("add")]
@@ -38,6 +66,7 @@ public class ArtistController : ControllerBase {
         var existingArtist = _repoContext.Artists
             .Where(a => a.Name == name)
             .FirstOrDefault();
+
         if (existingArtist != null) return Conflict($"Artist with name '{name}' already exists.");
 
         var newArtist = new Artist {
@@ -45,7 +74,16 @@ public class ArtistController : ControllerBase {
         };
         _repoContext.Artists.Add(newArtist);
         _repoContext.SaveChanges();
-        return Ok(newArtist);
+
+        var result = new AddDto();
+        result.IsAdded = true;
+        return Ok(result);
+    }
+
+    public class AddDto {
+        public bool IsAdded { get; set; }
+        public string Message { get; set; } = string.Empty;
+
     }
 
     [HttpDelete("delete")]
@@ -53,10 +91,23 @@ public class ArtistController : ControllerBase {
         var artist = _repoContext.Artists
             .Where(a => a.Name == name)
             .FirstOrDefault();
-        if (artist == null) return NotFound($"Artist with name '{name}' not found.");
+
+        var result = new DeleteDto();
+        if (artist == null) {
+            result.IsDeleted = true;
+            result.Message = $"Artist with name '{name}' not found.";
+            return Ok(result);
+        }
 
         _repoContext.Artists.Remove(artist);
         _repoContext.SaveChanges();
-        return Ok($"Artist with name '{name}' deleted successfully.");
+        result.IsDeleted = true;
+        return Ok(result);
+    }
+
+    public class DeleteDto {
+        public bool IsDeleted { get; set; }
+        public string Message { get; set; } = string.Empty;
+
     }
 }
