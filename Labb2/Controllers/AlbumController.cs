@@ -27,7 +27,7 @@ public class AlbumController : ControllerBase {
             result.Albums.Add(getDto);
         }
 
-        return Ok(albums);
+        return Ok(result);
     }
 
     [HttpGet("get")]
@@ -80,6 +80,31 @@ public class AlbumController : ControllerBase {
         _repoContext.Albums.Add(newAlbum);
         _repoContext.SaveChanges();
         return Ok(newAlbum.Id);
+    }
+
+    [HttpDelete("delete")]
+    public IActionResult DeleteAlbum (int albumId) {
+        var album = _repoContext.Albums
+            .Where(a => a.Id == albumId)
+            .FirstOrDefault();
+
+        var result = new DeleteAlbumDto();
+        if (album == null) {
+            result.IsDeleted = true;
+            result.Message = $"Album with ID '{albumId}' not found.";
+            return Ok(result);
+        }
+
+        _repoContext.Remove(album);
+        _repoContext.SaveChanges();
+
+        result.IsDeleted = true;
+        return Ok(result);
+    }
+
+    public class DeleteAlbumDto {
+        public bool IsDeleted { get; set; }
+        public string Message { get; set; } = string.Empty;
     }
 
     [HttpPost("add/artist")]
